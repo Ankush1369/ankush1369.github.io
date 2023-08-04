@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import PokemonCard, { PokemonInfo } from "./PokemonCard";
 
-
+const fetchPokemonInfo = async (pokemon : {name: string, url : string,}) : Promise<PokemonInfo> => {
+    const pokemonInfo = await (await fetch(pokemon.url)).json();
+    const imageSprites = pokemonInfo.sprites.other
+    return {
+        name: pokemon.name,
+        height: pokemonInfo.height,
+        weight: pokemonInfo.weight,
+        imageUrl: imageSprites.home.front_default ?? imageSprites.dream_world.front_default ?? imageSprites["official-artwork"].front_default
+    }
+}
 
 export default function Display() {
     const [allPokemons, setAllPokemons] = useState([] as PokemonInfo[])
@@ -9,21 +18,15 @@ export default function Display() {
     useEffect(() => {
 
         let shouldSkip = false;
-        const fetchPokemonInfo = async (pokemon : {name: string, url : string,}) : Promise<PokemonInfo> => {
-            const pokemonInfo = await (await fetch(pokemon.url)).json();
-            return {
-                name: pokemon.name,
-                height: pokemonInfo.height,
-                weight: pokemonInfo.weight,
-                imageUrl: pokemonInfo.sprites.other.dream_world.front_default,
-            }
-        }
+        let shouldFetchInfo = true;
         const fetchData = async (apiLink : string) => {
             const response = await (await fetch(apiLink)).json();
             if(!shouldSkip) {
                 for(let pokemon of response.results) {
                     const newPokemonInfo = await fetchPokemonInfo(pokemon);
-                    setAllPokemons((allPokemons) => [...allPokemons, newPokemonInfo]);
+                    if(shouldFetchInfo){
+                        setAllPokemons((allPokemons) => [...allPokemons, newPokemonInfo]);
+                    }
                 }
                 setApiLink(response.next);
             }
@@ -33,6 +36,7 @@ export default function Display() {
         }
         return () => {
             shouldSkip = true;
+            shouldFetchInfo = false;
         }
     }, [apiLink])
 
