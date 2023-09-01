@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState} from "react";
 import PokemonCard, { PokemonInfo } from "./PokemonCard";
+import { List } from "react-virtualized";
 
 const fetchPokemonInfo = async (pokemon : {name: string, url : string,}) : Promise<PokemonInfo> => {
     const pokemonInfo = await (await fetch(pokemon.url)).json();
@@ -12,13 +13,38 @@ const fetchPokemonInfo = async (pokemon : {name: string, url : string,}) : Promi
     }
 }
 
+const POKE_API_BASE_URL : string = "https://pokeapi.co/api/v2/pokemon";
+const LIMIT = 20;
+
+// const fetchMorePokemon = async () => {
+//     const apiLink = `${POKE_API_BASE_URL}?offset=0&limit=${LIMIT}`;
+//     const response = await (await fetch(apiLink)).json();
+//     const newPokemons : PokemonInfo[] = [];
+//     for(let pokemon of response.results) {
+//         const newPokemonInfo = await fetchPokemonInfo(pokemon);
+//         newPokemons.push(newPokemonInfo);
+//     }
+//     return newPokemons;
+// };
+
+
+
+
+
 export default function Display() {
-    const [allPokemons, setAllPokemons] = useState([] as PokemonInfo[])
-    const [apiLink, setApiLink] = useState("https://pokeapi.co/api/v2/pokemon");
+    const [allPokemons, setAllPokemons] = useState<PokemonInfo[]>([] as PokemonInfo[])
+    const [offSet, setOffSet] = useState<number>(0);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
+
+
+
     useEffect(() => {
 
         let shouldSkip = false;
         let shouldFetchInfo = true;
+
+        const apiLink = `${POKE_API_BASE_URL}?offset=${offSet}&limit=${LIMIT}`;
+
         const fetchData = async (apiLink : string) => {
             const response = await (await fetch(apiLink)).json();
             if(!shouldSkip) {
@@ -28,28 +54,30 @@ export default function Display() {
                         setAllPokemons((allPokemons) => [...allPokemons, newPokemonInfo]);
                     }
                 }
-                setApiLink(response.next);
+                setOffSet((offSet) => offSet + LIMIT);
+                setIsLoading(false);
             }
         }
-        if(Boolean(apiLink)) {
-            fetchData(apiLink);
+        if(isLoading && Boolean(apiLink)) {
+            fetchData(apiLink)
         }
+        
         return () => {
             shouldSkip = true;
             shouldFetchInfo = false;
         }
-    }, [apiLink])
+    }, [offSet, isLoading]);
 
-    console.log("updating...", allPokemons.length, allPokemons[allPokemons.length-1]);
 
     return (
         <div className="card-container">
             <ul>
             {allPokemons.map((pokemon, index) => 
                 <li key={index}>
-                    <PokemonCard {...pokemon} />
+                    <PokemonCard  {...pokemon} index={index}/>
                 </li>)}
             </ul>
         </div>
     );
 }
+

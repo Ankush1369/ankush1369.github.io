@@ -1,6 +1,11 @@
-export default function Button({onClick, className, value} : {onClick : () => void, className : string, value : string}) {
+export default function Button({onClick, className, value, disabled=false} : {
+    onClick : () => void,
+    className : string,
+    value : string
+    disabled ?: boolean
+}) {
     return (
-        <button className={className} onClick={onClick}>
+        <button className={className} onClick={onClick} disabled={disabled}>
             {value}
         </button>
     )

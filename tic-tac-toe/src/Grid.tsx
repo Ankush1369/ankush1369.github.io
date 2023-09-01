@@ -1,11 +1,16 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { BoxValue, Move } from "./Box";
 import Box from "./Box";
 import ScoreCard from "./Score";
 import Button from "./Button";
 
 
-function getWinner(grid : Array<BoxValue>) : BoxValue{
+type BoardState = {
+    grid: Array<BoxValue>,
+    currentMove: Move
+}
+
+const getWinner = (grid : Array<BoxValue>) : BoxValue => {
     const winnerLines = [
         [0, 1, 2],
         [3, 4, 5],
@@ -16,7 +21,7 @@ function getWinner(grid : Array<BoxValue>) : BoxValue{
         [0, 4, 8],
         [2, 4, 6],
     ];
-
+    
     for(let winnerLine of winnerLines) {
         const [a, b, c] = winnerLine;
         if(grid[a] && (grid[a] === grid[b]) && (grid[a] === grid[c])){
@@ -27,76 +32,80 @@ function getWinner(grid : Array<BoxValue>) : BoxValue{
 
 }
 
-const getRemainingCells = (grid : Array<BoxValue>) => {
+const getRemainingCells = (grid : Array<BoxValue>) : number => {
+    
     return grid.reduce((count, value) => {
-        if(!value) {
-            return count + 1;
-        } else {
-            return count;
-        }
-    },0);
+        const isNotNull = Boolean(value);
+        return isNotNull ? count : count + 1;
+    }, 0);
 }
 
-const intialGrid : Array<BoxValue> = new Array(9).fill(null as BoxValue);
+const intialBoardState : BoardState = {
+    grid : new Array(9).fill(null as BoxValue),
+    currentMove: Move.O,
+};
+
 
 export default function Grid(){
 
-    const [boardState, setBoardState] = useState({
-        grid : intialGrid,
-        currentMove : Move.O,
-        startMove : Move.O,
-    });
-    const [isFinish, setIsFinish] = useState(false as Boolean);
-    const [score, setScore] = useState({scoreO: 0, scoreX: 0});
+    const [boardStates, setBoardStates] = useState<Array<BoardState>>([intialBoardState]);
+
+    const [startMove, setStartMove] = useState<Move>(Move.O);
+    const [currentIndex, setCurrentIndex] = useState<number>(0);
+
+
+    const [isFinish, setIsFinish] = useState<boolean>(false);
+    const [score, setScore] = useState<{scoreO: number, scoreX: number}>({scoreO: 0, scoreX: 0});
+
    
-    const remainingCells = getRemainingCells(boardState.grid);
-    const winner = getWinner(boardState.grid);
+    const remainingCells = getRemainingCells(boardStates[currentIndex].grid);
+    const winner = getWinner(boardStates[currentIndex].grid);
     const isGameEnd = remainingCells === 0 || Boolean(winner);
-    
-    const captionText = winner ? `Winner is ${winner}` : (
-        remainingCells === 0 ? 'Draw' :
-        `Current Move : ${boardState.currentMove}`);
+    const currentBoardState : BoardState = boardStates[currentIndex];
+
+    const captionText = winner ? `Winner is ${winner}` : 
+        ( remainingCells === 0 ? 'Draw' :
+        `Current Move : ${boardStates[currentIndex].currentMove}`);
     
     const handleMove = (position : number) : void => {
-        const isPositonFilled = Boolean(boardState.grid[position]);
+        const isPositonFilled = Boolean(boardStates[currentIndex].grid[position]);
+        
         if(isPositonFilled || isGameEnd) {
             return;
         }
 
-        const nextGrid = boardState.grid.map((value, index) => {
-            if(index === position) {
-                return boardState.currentMove;
-            } else {
-                return value;
-            }
-        });
-
-        const nextMove = (boardState.currentMove === Move.O) ? Move.X : Move.O;
-        const newWinner = getWinner(nextGrid);
+        const nextBoardState : BoardState = {
+            grid: [...(currentBoardState.grid)],
+            currentMove: (currentBoardState.currentMove === Move.O) ? Move.X : Move.O,
+        }
+        nextBoardState.grid[position] = currentBoardState.currentMove;
+        const newWinner = getWinner(nextBoardState.grid);
 
         if(Boolean(newWinner)) {
             const newScore = {...score};
-            if(newWinner === Move.O) {
-                newScore.scoreO++;
-            } else {
-                newScore.scoreX++;
-            }
+            const winnerScore = newWinner === Move.O ? "scoreO" : "scoreX";
+            newScore[winnerScore]++;
             setScore(newScore);
-
         }
-        setBoardState({...boardState, grid : nextGrid, currentMove: nextMove});
+        setBoardStates([...boardStates.slice(0, currentIndex+1), nextBoardState]);
+        setCurrentIndex(ci => ci + 1);
     }
 
-    const nextGame = () => {
-        const nextStartMove = boardState.startMove === Move.O ? Move.X : Move.O; 
-        setBoardState({grid: intialGrid, currentMove: nextStartMove, startMove: nextStartMove});
-    }
+    const nextGame = useCallback(() => {
+        const nextStartMove = startMove === Move.O ? Move.X : Move.O; 
+        setStartMove(nextStartMove);
+        setBoardStates([{...intialBoardState, currentMove: nextStartMove}]);
+        setCurrentIndex(0);
+    }, [startMove]);
 
-    const restartHandler = () => {
+    
+    const restartHandler = useCallback(() => {
         setScore({scoreO: 0, scoreX: 0});
         setIsFinish(false);
-        nextGame();
-    }
+        setBoardStates([intialBoardState]);
+        setCurrentIndex(0);
+    },[]);
+
 
 
 
@@ -116,29 +125,29 @@ export default function Grid(){
                 <caption> {captionText} </caption>
                 <tbody>
                     <tr>
-                        <td><Box value={boardState.grid[0]} onClick={()=>{handleMove(0)}}/></td>
-                        <td><Box value={boardState.grid[1]} onClick={()=>{handleMove(1)}}/></td>
-                        <td><Box value={boardState.grid[2]} onClick={()=>{handleMove(2)}}/></td>
+                        <td><Box value={currentBoardState.grid[0]} onClick={()=>{handleMove(0)}}/></td>
+                        <td><Box value={currentBoardState.grid[1]} onClick={()=>{handleMove(1)}}/></td>
+                        <td><Box value={currentBoardState.grid[2]} onClick={()=>{handleMove(2)}}/></td>
 
                     </tr>
                     <tr>
-                        <td><Box value={boardState.grid[3]} onClick={()=>{handleMove(3)}}/></td>
-                        <td><Box value={boardState.grid[4]} onClick={()=>{handleMove(4)}}/></td>
-                        <td><Box value={boardState.grid[5]} onClick={()=>{handleMove(5)}}/></td>
+                        <td><Box value={currentBoardState.grid[3]} onClick={()=>{handleMove(3)}}/></td>
+                        <td><Box value={currentBoardState.grid[4]} onClick={()=>{handleMove(4)}}/></td>
+                        <td><Box value={currentBoardState.grid[5]} onClick={()=>{handleMove(5)}}/></td>
 
                     </tr>
                     <tr>
-                        <td><Box value={boardState.grid[6]} onClick={()=>{handleMove(6)}}/></td>
-                        <td><Box value={boardState.grid[7]} onClick={()=>{handleMove(7)}}/></td>
-                        <td><Box value={boardState.grid[8]} onClick={()=>{handleMove(8)}}/></td>
+                        <td><Box value={currentBoardState.grid[6]} onClick={()=>{handleMove(6)}}/></td>
+                        <td><Box value={currentBoardState.grid[7]} onClick={()=>{handleMove(7)}}/></td>
+                        <td><Box value={currentBoardState.grid[8]} onClick={()=>{handleMove(8)}}/></td>
 
                     </tr>
                 </tbody>
             </table>
+            <Button value="Undo" className="undo" onClick = {() => setCurrentIndex(ci => ci-1)} disabled={currentIndex===0}/> 
             {isGameEnd && (
                 <>
                 <Button value="Next-Game" className="next" onClick={nextGame} />
-                <Button value="Restart" className="restart" onClick={restartHandler} />
                 <Button value="Finish" className="finish" onClick = {() => setIsFinish(true)} />
                 </>
             )}
